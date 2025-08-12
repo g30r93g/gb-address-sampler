@@ -1,0 +1,6 @@
+*.gpkg
+.DS_Store
+.venv/
+.env
+!.env.example
+*/node_modules/

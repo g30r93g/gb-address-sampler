@@ -1,0 +1,64 @@
+services:
+  db:
+    build: ./db
+    container_name: postgis_address_sampler
+    shm_size: "4g"
+    environment:
+      POSTGRES_DB: os_address_sampler
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - type: tmpfs
+        target: /mnt/pg_tmp
+        tmpfs: { size: 12g }
+      - ./db/00-postgis.sql:/docker-entrypoint-initdb.d/00-postgis.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d os_address_sampler"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    ports: ["5432:5432"]
+
+  importer:
+    build: ./db-importer
+    container_name: gdal_importer
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: postgres
+    volumes:
+      - ./os-data:/data:ro
+
+  api:
+    build: ./api
+    container_name: address_sampler_api
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db:5432/os_address_sampler
+    restart: unless-stopped
+
+  pgadmin:
+    image: dpage/pgadmin4:8
+    container_name: pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  pgadmin_data:
+
