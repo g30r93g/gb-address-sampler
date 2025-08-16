@@ -1,0 +1,36 @@
+{
+  "name": "gb-address-sampler-api",
+  "version": "1.0.0",
+  "description": "The API for the GB Address Sampler",
+  "author": "g03r93g",
+  "type": "module",
+  "main": "dist/server.js",
+  "scripts": {
+    "build": "node ./build.mjs",
+    "start": "node dist/server.js",
+    "start:worker": "node dist/worker.js"
+  },
+  "keywords": [],
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.11.0",
+    "bullmq": "^5.57.0",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "geojson": "^0.5.0",
+    "pg": "^8.16.3",
+    "redis": "^5.8.1",
+    "socket.io": "^4.8.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.3",
+    "@types/geojson": "^7946.0.16",
+    "@types/node": "^24.0.15",
+    "@types/pg": "^8.15.5",
+    "esbuild": "^0.25.9",
+    "ts-node-esm": "^0.0.6"
+  }
+}

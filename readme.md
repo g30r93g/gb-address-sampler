@@ -27,10 +27,10 @@ Once we download this into a PostGIS database for easy querying, the service wil
     - Where a list of postcodes are supplied, they will be reversed into polygons
 2. Determine the built-up areas intersecting with the search area
 3. Re-define the built-up areas at the edge of the search areas
-4. Approximate the population density of each built-up area
+4. Approximate the population density of each built-up area ⚠️ (WIP - Not Yet Implemented)
     1. Calculate the area (km sq.) of each built-up area
     2. Determine the number of UPRNs in each built-up area
-5. Proportionately assign the number of addresses to sample based on the population density of each built-up area
+5. Proportionately assign the number of addresses to sample based on the population density of each built-up area ⚠️ (WIP - Not Yet Implemented)
 6. Sample addresses within each built-up area
     1. Produce random coordinates within the built-up area
     2. Analyse the number of UPRNs within 100m radius. If more than 5, good chance of a valid delivery address. Otherwise, re-sample.
@@ -38,7 +38,7 @@ Once we download this into a PostGIS database for easy querying, the service wil
     4. Select the address if there's only one address, or randomly select one if multiple addresses (for example HMO, high-rise, commercial units, etc.)
 7. Return addresses
 
-Note that the British National Grid (EPSG:27700) geometry is used internally, but WGS84 is the accepted geometry format by the API.
+Note that the British National Grid (EPSG:27700) geometry is used internally, but WGS84 longitude/latitude (EPSG:4326) is the geometry format accepted by the API.
 
 ### Discussion
 
@@ -47,46 +47,41 @@ We're trading speed for cost and accuracy.
 The reason we're trying to avoid cost is due to the [Postcode Address File](https://www.poweredbypaf.com)
 which Ordnance Survey incorporate into their data on a separate licence to the Premium data licence.
 
-A UPRN may not be a valid delivery address, thus we need to mitigate against wasted transactions to 
+A UPRN may not be a valid delivery address, thus we need to mitigate against wasted transactions to
 the OS Places API for UPRNs that do not render a valid delivery address.
 
 ## API Documentation
 
-### `GET /v1/alive`
+### ⚠️ WIP Note
+Currently, only obtaining results by websockets are supported.
+Long polling is an active priority.
 
-This is an internal route to check the liveness of the service.
+### `GET /v1/health`
 
-### `GET /v1/sample/area`
+This is an internal route to support health checking the service.
+
+### `POST /v1/sample`
 
 This route requests a sample of addresses for a given area.
 
-You should supply a polygon (`POLYGON()`) or a multi-polygon (`MULTIPOLYGON()`)in the request body:
+You should supply a polygon (`POLYGON()`) in the request body:
 ```json
 {
-    "samples": 100,
-    "area": "POLYGON(...)"
+    "n": number,
+    "polygon": GeoJSON.Polygon
 }
 ```
 
 You should expect the following return body:
 ```json
 {
-    "count": 100,
-    "data": [
-        {
-            "address": {
-                "doorNumber": 6,
-                "street": "Cockfosters Road",
-                "
-            },
-            "lat": ,
-            "lng" 
-        }
-    ]
+    "jobId": string
 }
 ```
 
-### `GET /v1/sample/postcodes`
+### ⚠️ [WIP] `POST /v1/sample/postcodes`
+
+⚠️ This is planned for a future release
 
 This route requests a sample of addresses within postcode areas.
 
@@ -103,8 +98,53 @@ You should supply a list of postcodes in the request body:
     ]
 }
 ```
-Note that acceptable postcodes include at least the outward code (Postcode Area + Postcode District). The inward code and its constituents are optional.
+Note that valid postcodes include at least the outward code (Postcode Area + Postcode District). The inward code and its constituents are optional.
 Details on postcode structure can be found on [page 19 of this document on PAF from Royal Mail](https://www.poweredbypaf.com/wp-content/uploads/2025/01/Latest-Programmers_guide_Edition-7-Version-6-2.pdf).
+
+### ⚠️ [WIP] `GET /v1/poll/{job_id}`
+
+⚠️ This is planned for a future release
+
+This route allows long-polling the sampler for job status and results.
+Provide the `job_id` in the URL. Note that jobs persist for 1 hour in cache.
+
+You should expect the following return body:
+```json
+{
+    "status": "in-progress" | "complete" | "error",
+    "results": [
+        {
+            uprn: string;
+            address: {
+                udprn: string;
+                full: string;
+                postcode: string;
+                town: string;
+                dependentLocality?: string;
+                doubleDependentLocality?: string;
+                thoroughfare?: string;
+                dependentThoroughfare?: string;
+                buildingNumber?: string;
+                buildingName?: string;
+                subBuildingName?: string;
+            };
+            lat: number;
+            lon: number;
+            classification: {
+                code: string;
+                description: string;
+            }
+        }
+    ]
+}
+```
+
+## CLI Demo Documentation
+
+1. Ensure you have built and started the docker compose: `docker compose up --build`
+2. Change into the `cli-demo` directory: `cd ./cli-demo`
+3. Install dependencies: `npm install`
+4. Run the demo: `npm run start`
 
 ## License
 
