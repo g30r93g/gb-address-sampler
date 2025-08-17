@@ -26,17 +26,13 @@ Once we download this into a PostGIS database for easy querying, the service wil
 1. Receive the number of addresses to sample and the search area (polygon or postcodes)
     - Where a list of postcodes are supplied, they will be reversed into polygons
 2. Determine the built-up areas intersecting with the search area
-3. Re-define the built-up areas at the edge of the search areas
-4. Approximate the population density of each built-up area ⚠️ (WIP - Not Yet Implemented)
-    1. Calculate the area (km sq.) of each built-up area
-    2. Determine the number of UPRNs in each built-up area
-5. Proportionately assign the number of addresses to sample based on the population density of each built-up area ⚠️ (WIP - Not Yet Implemented)
-6. Sample addresses within each built-up area
+3. Re-define the built-up areas at the edge of the search area
+4. Sample addresses within each built-up area
     1. Produce random coordinates within the built-up area
     2. Analyse the number of UPRNs within 100m radius. If more than 5, good chance of a valid delivery address. Otherwise, re-sample.
     3. Query OS Places API to obtain the addresses at or around that coordinate
     4. Select the address if there's only one address, or randomly select one if multiple addresses (for example HMO, high-rise, commercial units, etc.)
-7. Return addresses
+5. Return addresses
 
 Note that the British National Grid (EPSG:27700) geometry is used internally, but WGS84 longitude/latitude (EPSG:4326) is the geometry format accepted by the API.
 
@@ -65,7 +61,7 @@ This is an internal route to support health checking the service.
 This route requests a sample of addresses for a given area.
 
 You should supply a polygon (`POLYGON()`) in the request body:
-```json
+```ts
 {
     "n": number,
     "polygon": GeoJSON.Polygon
@@ -73,7 +69,7 @@ You should supply a polygon (`POLYGON()`) in the request body:
 ```
 
 You should expect the following return body:
-```json
+```ts
 {
     "jobId": string
 }
@@ -81,7 +77,7 @@ You should expect the following return body:
 
 ### ⚠️ [WIP] `POST /v1/sample/postcodes`
 
-⚠️ This is planned for a future release
+⚠️ This is planned for a future release. Currently returns `405`.
 
 This route requests a sample of addresses within postcode areas.
 
@@ -98,46 +94,43 @@ You should supply a list of postcodes in the request body:
     ]
 }
 ```
-Note that valid postcodes include at least the outward code (Postcode Area + Postcode District). The inward code and its constituents are optional.
+Note that valid postcodes include at least the outward code (Postcode Area + Postcode District). The inward code (Sector and Unit) are optional.
 Details on postcode structure can be found on [page 19 of this document on PAF from Royal Mail](https://www.poweredbypaf.com/wp-content/uploads/2025/01/Latest-Programmers_guide_Edition-7-Version-6-2.pdf).
 
-### ⚠️ [WIP] `GET /v1/poll/{job_id}`
-
-⚠️ This is planned for a future release
+### `GET /v1/poll/{job_id}`
 
 This route allows long-polling the sampler for job status and results.
-Provide the `job_id` in the URL. Note that jobs persist for 1 hour in cache.
+Provide the `job_id` in the URL.
 
-You should expect the following return body:
-```json
-{
-    "status": "in-progress" | "complete" | "error",
-    "results": [
-        {
-            uprn: string;
-            address: {
-                udprn: string;
-                full: string;
-                postcode: string;
-                town: string;
-                dependentLocality?: string;
-                doubleDependentLocality?: string;
-                thoroughfare?: string;
-                dependentThoroughfare?: string;
-                buildingNumber?: string;
-                buildingName?: string;
-                subBuildingName?: string;
-            };
-            lat: number;
-            lon: number;
-            classification: {
-                code: string;
-                description: string;
-            }
+If the job is not complete, expect a `202` response code.
+When the job completes, you should expect the following return body:
+```ts
+[
+    {
+        uprn: string;
+        address: {
+            udprn: string;
+            full: string;
+            postcode: string;
+            town: string;
+            dependentLocality?: string;
+            doubleDependentLocality?: string;
+            thoroughfare?: string;
+            dependentThoroughfare?: string;
+            buildingNumber?: string;
+            buildingName?: string;
+            subBuildingName?: string;
+        };
+        lat: number;
+        lon: number;
+        classification: {
+            code: string;
+            description: string;
         }
-    ]
-}
+    }
+]
 ```
+If an error occurs during the job, expect a `500` response code.
 
 ## CLI Demo Documentation
 
@@ -145,6 +138,11 @@ You should expect the following return body:
 2. Change into the `cli-demo` directory: `cd ./cli-demo`
 3. Install dependencies: `npm install`
 4. Run the demo: `npm run start`
+
+## Future Work
+
+- Request postcodes to sample within
+- Approximate the population density of each built-up area, then sample based on the population density of each built-up area
 
 ## License
 
