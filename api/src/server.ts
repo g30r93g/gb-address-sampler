@@ -4,6 +4,7 @@ import express from 'express';
 import http from 'http';
 import { createClient } from 'redis';
 import { Server } from 'socket.io';
+import { GeocodedAddress } from './types/geocoded-address';
 
 const app = express();
 const server = http.createServer(app);
@@ -51,7 +52,7 @@ sub.pSubscribe('error:*', (message, channel) => {
 app.post('/sample', async (req, res) => {
   const { polygon, n } = req.body ?? {};
   if (!polygon || !n) {
-    return res.status(400).json({ error: 'Missing polygon or n' });
+    return res.status(400).json({ error: 'Request body malformed' });
   }
 
   console.log(`[API] Received sampling request for polygon: ${JSON.stringify(polygon)}, n: ${n}`);
@@ -62,6 +63,43 @@ app.post('/sample', async (req, res) => {
   return {
     jobId: job.id
   };
+});
+
+app.post('/sample/postcodes', async (req, res) => {
+  return res.status(405).json({ error: 'This endpoint is not implemented yet' });
+  // const { postcodes, n } = req.body ?? {};
+  // if (!postcodes || !n) {
+  //   return res.status(400).json({ error: 'Request body malformed' });
+  // }
+  // console.log(`[API] Received sampling request for postcodes: ${JSON.stringify(postcodes)}, n: ${n}`);
+
+  // todo: reverse postcodes to polygons
+
+  // const job = await jobQueue.add('sample', { postcodes, n });
+  // res.json({ jobId: job.id });
+
+  // return {
+  //   jobId: job.id
+  // };
+});
+
+app.get('/jobs/:jobId', async (req, res) => {
+  const { jobId } = req.params;
+  const job = await jobQueue.getJob(jobId);
+  if (!job) return res.status(404).json({ error: 'Job not found' });
+
+  const state = await job.getState();
+  if (state === 'failed') {
+    return res.status(500).json({ state, message: 'Job failed' });
+  }
+
+  if (state !== 'completed') {
+    return res.status(202).json({ state, message: 'Job not completed yet' });
+  }
+
+  const result: GeocodedAddress[] = (await (job as any).getReturnValue?.()) ?? (job as any).returnvalue ?? [];
+
+  return res.json(result);
 });
 
 // HTTP - Healthcheck

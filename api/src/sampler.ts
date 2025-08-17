@@ -2,7 +2,8 @@
 import { Job } from 'bullmq';
 import { Pool } from 'pg';
 import { createClient } from 'redis';
-import { GeocodedAddress, geocodeUPRN } from './geocoder';
+import { geocodeUPRN } from './geocoder';
+import { GeocodedAddress } from './types/geocoded-address';
 
 const REDIS_URL = process.env.REDIS_URL || 'redis://redis:6379';
 const redis = createClient({ url: REDIS_URL });

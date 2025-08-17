@@ -1,30 +1,8 @@
 import axios from 'axios';
+import { GeocodedAddress } from './types/geocoded-address';
 
 const OS_PLACES_API_KEY = process.env.OS_PLACES_API_KEY!;
 const BASE_URL = 'https://api.os.uk/search/places/v1/uprn';
-
-export type GeocodedAddress = {
-  uprn: string;
-  address: {
-    udprn: string;
-    full: string;
-    postcode: string;
-    town: string;
-    dependentLocality?: string;
-    doubleDependentLocality?: string;
-    thoroughfare?: string;
-    dependentThoroughfare?: string;
-    buildingNumber?: string;
-    buildingName?: string;
-    subBuildingName?: string;
-  };
-  lat: number;
-  lon: number;
-  classification: {
-    code: string;
-    description: string;
-  }
-};
 
 export async function geocodeUPRN(uprn: string): Promise<GeocodedAddress | null> {
   try {
@@ -84,7 +62,9 @@ export async function geocodeUPRN(uprn: string): Promise<GeocodedAddress | null>
 
     return result;
   } catch (err: any) {
-    console.warn(`[geocodeUPRN] Failed for UPRN ${uprn}: ${err.message}`);
+    console.warn(`[Geocoder] Failed for UPRN ${uprn}: `, err);
     return null;
   }
 }
+export { GeocodedAddress };
+
