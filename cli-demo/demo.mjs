@@ -63,7 +63,7 @@ function listen(jobId) {
     socket.on("connect", () => {
       console.log(`[client] Connected as ${socket.id}`);
       socket.emit("join", jobId);
-      console.log(`[client] Joined room ${jobId}`);
+      console.log(`[client] Listening to job ${jobId}`);
     });
 
     const onEvt = (evt) => (msg) => {
