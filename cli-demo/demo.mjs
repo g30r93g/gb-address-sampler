@@ -19,7 +19,7 @@ const args = Object.fromEntries(
 );
 
 const BASE_URL = args.base || process.env.API_BASE || "http://localhost:3000";
-const N = Number(args.n || 3);
+const N = Number(args.n || 100);
 
 // Default polygon: small box in central London (WGS84 lon/lat)
 const defaultPolygon = {
