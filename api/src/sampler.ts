@@ -1,4 +1,5 @@
 // src/sampler.ts
+import Bottleneck from 'bottleneck';
 import { Job } from 'bullmq';
 import { Pool } from 'pg';
 import { createClient } from 'redis';
@@ -21,8 +22,18 @@ type UprnRecord = {
 
 const MAX_ATTEMPTS = 20;
 
+const limiter = new Bottleneck({
+  reservoir: 50,
+  reservoirRefreshAmount: 50,
+  reservoirRefreshInterval: 65000,
+  maxConcurrent: 1,
+});
+
+/** Wrap the geocoder so every call is scheduled through the limiter */
+const limitedGeocodeUPRN = (uprn: string) => limiter.schedule(() => geocodeUPRN(uprn));
+
 export async function sampler(job: Job) {
-  const { polygon, n } = job.data;
+  const { polygon, n } = job.data as { polygon: any; n: number };
   const jobId = job.id!;
   const found = new Map<string, GeocodedAddress>();
   const tried = new Set<string>();
@@ -49,7 +60,7 @@ export async function sampler(job: Job) {
 
   if (buaResult.rows.length === 0) {
     const errMsg = 'No built-up areas intersect with the supplied polygon.';
-    console.error(`[${jobId}] ${errMsg}`);
+    console.error(`[${jobId}] ERROR - ${errMsg}`);
     await redis.publish(`error:${jobId}`, JSON.stringify({ jobId, type: 'error', error: errMsg }));
     throw new Error(errMsg);
   }
@@ -94,16 +105,26 @@ export async function sampler(job: Job) {
       }
     }
 
-    console.log(`[${jobId}] Trying to geocode ${uprnsToTry.length} UPRNs...`);
+    console.log(`[${jobId}] Trying to geocode ${uprnsToTry.length} UPRNs (rate-limited to 50/min)...`);
+
+    // Sequentially schedule through the limiter; you can batch if you want,
+    // but keep checking `found.size` so we stop as soon as we hit `n`.
     for (let i = 0; i < uprnsToTry.length && found.size < n; i++) {
       const record = uprnsToTry[i];
       console.log(`[${jobId}] Geocoding UPRN: ${record.uprn} (${i + 1}/${uprnsToTry.length})`);
-      const geocoded = await geocodeUPRN(record.uprn);
-      if (geocoded) {
-        found.set(record.uprn, geocoded);
-        console.log(`[${jobId}] Geocoded UPRN: ${record.uprn} successfully.`);
-      } else {
-        console.log(`[${jobId}] Failed to geocode UPRN: ${record.uprn}.`);
+
+      try {
+        const geocoded = await limitedGeocodeUPRN(record.uprn);
+
+        if (geocoded) {
+          found.set(record.uprn, geocoded);
+          console.log(`[${jobId}] Geocoded UPRN: ${record.uprn} successfully.`);
+        } else {
+          console.log(`[${jobId}] Failed to geocode UPRN: ${record.uprn}.`);
+        }
+      } catch (err: any) {
+        // If upstream throws (e.g., 429/5xx), Bottleneck still guards the overall rate.
+        console.warn(`[${jobId}] Error geocoding ${record.uprn}: ${err?.message ?? err}`);
       }
 
       await redis.publish(
@@ -115,9 +136,6 @@ export async function sampler(job: Job) {
           progress: Math.round((found.size / n) * 100),
         })
       );
-
-      // throttle to respect OS Places
-      await new Promise((r) => setTimeout(r, 200));
     }
   }
 

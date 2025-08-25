@@ -13,7 +13,7 @@ worker.on('completed', (job) => {
 });
 
 worker.on('failed', (job, err) => {
-  console.error(`[Worker] Job ${job?.id} failed: ${err.message}`);
+  console.error(`[Worker] Job ${job?.id} failed:`, err);
 });
 
 console.log('[Worker] Address Sampler worker running…');
