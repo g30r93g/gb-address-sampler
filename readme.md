@@ -1,4 +1,4 @@
-# Delivery Address Sampler
+# GB Address Sampler
 
 An address sampler for Great Britain (GB)
 using Ordnance Survey APIs to generate valid delivery addresses.
